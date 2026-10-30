@@ -1,0 +1,82 @@
+name: Verificar galeria João Veloso no desktop e no celular
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/teste-visual-galeria.yml'
+      - 'index.html'
+      - 'assets/alunos/**'
+      - 'assets/galeria-alunos.css'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  galeria:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar navegador de teste
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Testar versão publicada em duas resoluções
+        shell: bash
+        run: |
+          node - <<'JS'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          (async () => {
+            const browser = await chromium.launch({headless:true, args:['--no-sandbox']});
+            fs.mkdirSync('screenshots-galeria', {recursive:true});
+            const url='https://joaovelosopersonal.vercel.app/';
+            try {
+              for(const [label,width,height,cols] of [['desktop',1366,850,2],['celular',390,844,1]]) {
+                const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
+                let found=false;
+                for(let attempt=1;attempt<=25;attempt++){
+                  try {
+                    const res=await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000});
+                    if(res && res.status()<400 && await page.locator('.gal.gal-alunos.gallery-hq img').count()===4) {found=true;break}
+                  } catch(err){console.log('TENTATIVA',label,attempt,String(err).slice(0,120));}
+                  await page.waitForTimeout(3500);
+                }
+                if(!found)throw Error('Site nao recebeu as quatro fotos: '+label);
+                const gallery=page.locator('.gal.gal-alunos.gallery-hq');
+                await gallery.scrollIntoViewIfNeeded();
+                const images=await gallery.locator('img').evaluateAll(async (elements)=> {
+                  await Promise.all(elements.map(el=>el.decode().catch(()=>{})));
+                  return elements.map(el=> {
+                    const s=getComputedStyle(el);
+                    const r=el.getBoundingClientRect();
+                    return {src:el.getAttribute('src'),complete:el.complete,naturalWidth:el.naturalWidth,naturalHeight:el.naturalHeight,fit:s.objectFit,width:r.width,height:r.height,visible:r.width>0&&r.height>0};
+                  });
+                });
+                const layout=await gallery.evaluate(g=>{
+                  const st=getComputedStyle(g);
+                  return {columns:st.gridTemplateColumns.trim().split(/\s+/).length,width:g.getBoundingClientRect().width,docWidth:document.documentElement.scrollWidth,viewport:window.innerWidth};
+                });
+                console.log('GALERIA',label,JSON.stringify({layout,images}));
+                if(images.length!==4)throw Error('Quantidade errada de imagens: '+label);
+                for(const im of images){
+                  if(!im.complete || im.naturalWidth<1500 || im.naturalHeight<2000 || im.fit!=='contain' || !im.visible)throw Error('Imagem com falha de qualidade ou corte: '+JSON.stringify(im));
+                }
+                if(new Set(images.map(im=>im.src)).size!==4)throw Error('Fotos duplicadas');
+                if(layout.columns!==cols)throw Error('Colunas inesperadas em '+label+': '+layout.columns);
+                if(layout.docWidth>layout.viewport+2)throw Error('Rolagem horizontal em '+label+': '+JSON.stringify(layout));
+                await gallery.screenshot({path:'screenshots-galeria/galeria-'+label+'.png'});
+                console.log('APROVADO',label);
+                await page.close();
+              }
+            } finally {await browser.close()}
+          })().catch(e=>{console.error('FALHOU',e);process.exit(1)});
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidencias-galeria-joao-veloso
+          path: screenshots-galeria/
+          if-no-files-found: ignore
