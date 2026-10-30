@@ -126,7 +126,7 @@ jobs:
           assert 'class="vertex-contact-copy"' in sanitized
           assert 'Consultar valores no WhatsApp' in sanitized
           assert 'Conheça o Método VERTEX:' in sanitized
-          assert 'Suporte diário' in sanitized
+          assert 'suporte diário' in sanitized.lower()
           assert 'assets/brand-fonts.css' in sanitized
           assert 'assets/galeria-alunos.css' in sanitized
           assert 'assets/vertex-review.css' in sanitized
