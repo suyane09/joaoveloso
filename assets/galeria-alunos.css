@@ -1,45 +1,36 @@
-/* Galeria com fotografias reais de atendimento: sem miniaturas e sem cortes. */
-.gal.gal-alunos {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Fotografias ORIGINAIS do João Veloso, restauradas sem repetição.
+   Manter a resolução e a proporção real de cada imagem. */
+.gal.gallery-restored {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: clamp(14px, 2vw, 24px) !important;
   align-items: start;
-  gap: clamp(14px, 2vw, 22px);
-  width: min(100%, 900px);
+  width: min(100%, 1000px);
+  height: auto !important;
+  overflow: visible !important;
   margin-inline: auto;
 }
-.gal-alunos .gal-aluno {
-  margin: 0;
-  padding: 0;
-  min-width: 0;
-  background: #101010;
-  border: 1px solid rgba(255,255,255,.12);
-}
-/* Duas miniaturas de 150px foram removidas da apresentação:
-   não representam a qualidade das fotografias originais enviadas. */
-.gal-alunos .gal-aluno:nth-child(2),
-.gal-alunos .gal-aluno:nth-child(4) {
-  display: none !important;
-}
-.gal.gal-alunos .gal-aluno img,
-.gal.gal-alunos .gal-aluno img:hover {
-  display: block;
-  width: 100%;
-  height: auto !important;
+.gal.gallery-restored img,
+.gal.gallery-restored img:hover {
+  display: block !important;
+  width: 100% !important;
   max-width: 100%;
+  height: auto !important;
   aspect-ratio: auto !important;
   object-fit: contain !important;
   object-position: center;
   filter: none !important;
   transform: none !important;
-  vertical-align: middle;
+  border: 1px solid rgba(255,255,255,.1);
+  background: #101010;
 }
-@media (max-width: 560px) {
-  .gal.gal-alunos {
-    grid-template-columns: 1fr;
-    width: min(100%, 450px);
-    gap: 18px;
+@media (max-width: 620px) {
+  .gal.gallery-restored {
+    grid-template-columns: 1fr !important;
+    max-width: 460px;
+    gap: 16px !important;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .gal-alunos img { animation: none !important; transition: none !important; }
+  .gal.gallery-restored img { animation: none !important; transition: none !important; }
 }
