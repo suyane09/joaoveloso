@@ -1,0 +1,7 @@
+/* Revisão aprovada: identidade VERTEX com Funnel Display + Plus Jakarta Sans. */
+.vertex-contact-copy {display:flex;flex-direction:column;gap:16px;margin:24px 0 6px;padding:26px 0;border-top:1px solid #303030;border-bottom:1px solid #303030}
+.vertex-contact-copy strong{font-family:"Funnel Display",sans-serif;font-size:clamp(27px,3.6vw,40px);font-weight:800;line-height:1.05;color:#ffdf00;text-transform:uppercase;letter-spacing:-.02em;max-width:15ch}
+.vertex-contact-copy span{font-family:"Plus Jakarta Sans",sans-serif;color:#e9e9e9;font-size:clamp(15px,1.7vw,17px);line-height:1.55;max-width:36ch}
+.offer .panel{overflow:hidden}
+.offer .panel .btn{padding-inline:16px;text-align:center}
+@media (max-width:700px){.vertex-contact-copy{padding:22px 0}.vertex-contact-copy strong{font-size:30px}}
