@@ -1,0 +1,74 @@
+name: Instalar fontes oficiais João Veloso
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/fontes-joao-veloso.yml"
+      - "assets/brand-fonts.css"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar-fontes:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter projeto
+        uses: actions/checkout@v4
+
+      - name: Baixar fontes originais e licenças
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/fonts
+          BASE="https://raw.githubusercontent.com/google/fonts/main/ofl"
+          curl --fail --location --silent --show-error --retry 3 "$BASE/funneldisplay/FunnelDisplay%5Bwght%5D.ttf" -o assets/fonts/FunnelDisplay-Variable.ttf
+          curl --fail --location --silent --show-error --retry 3 "$BASE/plusjakartasans/PlusJakartaSans%5Bwght%5D.ttf" -o assets/fonts/PlusJakartaSans-Variable.ttf
+          curl --fail --location --silent --show-error --retry 3 "$BASE/plusjakartasans/PlusJakartaSans-Italic%5Bwght%5D.ttf" -o assets/fonts/PlusJakartaSans-Italic-Variable.ttf
+          curl --fail --location --silent --show-error --retry 3 "$BASE/funneldisplay/OFL.txt" -o assets/fonts/OFL-FunnelDisplay.txt
+          curl --fail --location --silent --show-error --retry 3 "$BASE/plusjakartasans/OFL.txt" -o assets/fonts/OFL-PlusJakartaSans.txt
+          test -s assets/fonts/FunnelDisplay-Variable.ttf
+          test -s assets/fonts/PlusJakartaSans-Variable.ttf
+          test -s assets/fonts/PlusJakartaSans-Italic-Variable.ttf
+
+      - name: Aplicar stylesheet preservando o HTML e o layout
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path("index.html")
+          html = path.read_text(encoding="utf-8")
+          tag = '<link rel="stylesheet" href="/assets/brand-fonts.css">'
+          if tag not in html:
+              head_end = re.search(r"</head\s*>", html, flags=re.IGNORECASE)
+              if head_end is None:
+                  raise RuntimeError("Não foi encontrado o encerramento do <head> no index.html.")
+              html = html[:head_end.start()] + "  " + tag + "\n" + html[head_end.start():]
+              path.write_text(html, encoding="utf-8")
+          print("Fontes integradas ao HTML.")
+
+          # Garantir que o CSS e todos os arquivos de fonte estejam presentes.
+          css = Path("assets/brand-fonts.css").read_text(encoding="utf-8")
+          for name in ["FunnelDisplay-Variable.ttf", "PlusJakartaSans-Variable.ttf", "PlusJakartaSans-Italic-Variable.ttf"]:
+              if name not in css or not (Path("assets/fonts") / name).is_file():
+                  raise RuntimeError(f"Fonte ausente: {name}")
+          PY
+
+      - name: Publicar arquivos no GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html assets/fonts/
+          if ! git diff --cached --quiet; then
+            git commit -m "style: usar fontes oficiais da marca no site João Veloso"
+            git push origin main
+          else
+            echo "A tipografia já estava atualizada."
+          fi
