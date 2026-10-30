@@ -1,0 +1,25 @@
+/* Galeria João Veloso: somente fotos de orientação aos alunos. */
+.gal.gal-alunos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(10px, 1.1vw, 16px);
+  width: 100%;
+  align-items: start;
+}
+.gal-alunos .gal-aluno { min-width: 0; margin: 0; padding: 0; background: #111; border: 1px solid rgba(255,255,255,.09); }
+.gal.gal-alunos .gal-aluno img,
+.gal.gal-alunos .gal-aluno img:hover {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  aspect-ratio: auto;
+  object-fit: contain;
+  object-position: center;
+  filter: none;
+  transform: none;
+  vertical-align: middle;
+}
+@media (max-width: 850px) { .gal.gal-alunos { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 420px) { .gal.gal-alunos { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; } }
+@media (prefers-reduced-motion: reduce) { .gal-alunos img { animation: none !important; transition: none !important; } }
