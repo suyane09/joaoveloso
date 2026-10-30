@@ -1,0 +1,86 @@
+name: Galeria de alunos nitida sem repeticoes
+on:
+  push:
+    paths:
+      - ".github/workflows/galeria-alunos-nitida.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  corrigir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Organizar fotos originais com alunos e restaurar qualidade
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re, base64
+          from pathlib import Path
+          from PIL import Image
+          import io
+          import subprocess
+
+          old = subprocess.check_output(["git","show","397520f88028b05f9b16d36a99cf802ccce9ba6d:index.html"], text=True)
+          path=Path("index.html")
+          cur=path.read_text(encoding="utf-8")
+          gal_old = re.search(r'<div class="gal">(.*?)</div>',old,re.S)
+          about_old = re.search(r'<img class="main"[^>]+>',old,re.S)
+          gal_cur = re.search(r'<div class="gal gallery-restored">(.*?)</div>',cur,re.S)
+          about_cur = re.search(r'<img class="main"[^>]+>',cur,re.S)
+          if any(x is None for x in (gal_old,about_old,gal_cur,about_cur)):
+              raise RuntimeError("Seções de fotografias não correspondem ao projeto. Nenhuma alteração.")
+
+          existing = re.findall(r'<img[^>]*>',gal_old.group(1),re.S)
+          if len(existing)!=4: raise RuntimeError("Galeria original inesperada")
+          original_about=about_old.group(0)
+          all_photos=[existing[1],original_about]
+          # Despejar arquivos na pasta para evitar imagens enormes dentro do HTML
+          folder=Path("assets/alunos")
+          folder.mkdir(parents=True,exist_ok=True)
+          names=["aluno-cadeira-extensora.jpg","aluno-supino-acompanhado.jpg"]
+          for tag,filename in zip(all_photos,names):
+              match=re.search(r'src="data:image/jpeg;base64,([A-Za-z0-9+/=]+)"',tag)
+              if match is None: raise RuntimeError("Imagem original ausente")
+              data=base64.b64decode(match.group(1),validate=True)
+              image=Image.open(io.BytesIO(data))
+              if image.width<500 or image.height<500: raise RuntimeError(f"Imagem não tem qualidade original: {filename}")
+              (folder/filename).write_bytes(data)
+              print(filename, image.size, len(data))
+
+          # Imagem de apresentação substituída pela foto original de treinamento individual,
+          # liberando a foto de acompanhamento para a galeria sem duplicação.
+          solo = existing[0].replace('alt="João treinando na polia"','alt="João Veloso durante treino na academia"',1)
+          solo = solo.replace('<img ', '<img class="main" ',1)
+          cur=cur[:about_cur.start()]+solo+cur[about_cur.end():]
+          gal_cur=re.search(r'<div class="gal gallery-restored">(.*?)</div>',cur,re.S)
+          assert gal_cur
+          new = '''<div class="gal gal-alunos gallery-hq">
+            <figure><img src="assets/alunos/aluno-cadeira-extensora.jpg" width="500" height="667" alt="João Veloso acompanhando aluno durante exercício na cadeira extensora" loading="lazy" decoding="async"></figure>
+            <figure><img src="assets/alunos/aluno-supino-acompanhado.jpg" width="640" height="800" alt="João Veloso auxiliando aluno durante exercício no supino" loading="lazy" decoding="async"></figure>
+          </div>'''
+          cur=cur[:gal_cur.start()]+new+cur[gal_cur.end():]
+          path.write_text(cur,encoding="utf-8")
+          Path("assets/galeria-alunos.css").write_text('''/* Alunos: fotografias originais em alta resolução, sem recorte e sem repetição. */
+          .gal.gal-alunos.gallery-hq {display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:clamp(14px,2vw,24px) !important;max-width:950px;margin-inline:auto;align-items:start;height:auto !important;overflow:visible !important}
+          .gal.gallery-hq figure {min-width:0;margin:0;background:#111;border:1px solid rgba(255,255,255,.12)}
+          .gal.gallery-hq img,.gal.gallery-hq img:hover {display:block;width:100% !important;height:auto !important;max-width:100%;aspect-ratio:auto !important;object-fit:contain !important;object-position:center !important;filter:none !important;transform:none !important}
+          @media(max-width:660px){.gal.gal-alunos.gallery-hq{grid-template-columns:1fr !important;max-width:480px}}
+          @media(prefers-reduced-motion:reduce){.gal.gallery-hq img{transition:none !important;animation:none !important}}
+          ''',encoding="utf-8")
+          assert cur.count('src="assets/alunos/aluno-')==2
+          assert cur.count('alt="João Veloso auxiliando aluno durante exercício no supino"')==1
+          print("PASSOU: duas fotografias originais de alunos, alta qualidade, sem duplicação no site.")
+          PY
+      - name: Publicar alterações no site
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html assets/galeria-alunos.css assets/alunos
+          git rm -f --ignore-unmatch .github/workflows/galeria-alunos-nitida.yml
+          git commit -m "fix: fotos originais em alta qualidade sem duplicar alunos"
+          git push origin main
