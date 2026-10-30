@@ -1,0 +1,126 @@
+name: Publicar galeria original do João Veloso
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'joao-veloso-galeria-4-fotos-originais.zip'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: joao-veloso-galeria
+  cancel-in-progress: false
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verificar identidade do upload
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ "${{ github.actor }}" != "suyane09" ]; then
+            echo "Somente uploads realizados pela proprietária são permitidos."
+            exit 1
+          fi
+      - name: Preparar verificação de resolução
+        run: python -m pip install --quiet Pillow
+      - name: Aplicar as quatro fotografias originais sem recompressão
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          from io import BytesIO
+          from zipfile import ZipFile
+          import re, hashlib
+
+          root = Path('.')
+          package = root / 'joao-veloso-galeria-4-fotos-originais.zip'
+          if not package.is_file():
+              raise SystemExit('Envie o ZIP original para a raiz do repositório. Nenhum arquivo foi alterado.')
+
+          filenames = [
+              ('aluno-cadeira-extensora.jpg', 'João Veloso orientando aluno na cadeira extensora'),
+              ('aluno-supino-acompanhado.jpg', 'João Veloso acompanhando aluno durante o supino'),
+              ('aluno-mobilidade.jpg', 'João Veloso auxiliando aluno em exercício de mobilidade e alongamento'),
+              ('aluno-maquina.jpg', 'João Veloso orientando aluno em aparelho de musculação'),
+          ]
+          image_data = {}
+          photo_dimensions = {}
+          with ZipFile(package) as z:
+              names = set(z.namelist())
+              for filename, alt in filenames:
+                  name = 'fotos/' + filename
+                  if name not in names:
+                      raise SystemExit('Foto original ausente no pacote: ' + name)
+                  if z.getinfo(name).file_size > 8_000_000:
+                      raise SystemExit('Foto ultrapassa o limite de verificação: ' + name)
+                  data = z.read(name)
+                  with Image.open(BytesIO(data)) as img:
+                      if img.format != 'JPEG' or img.width < 1500 or img.height < 2000:
+                          raise SystemExit('Foto incorreta ou de baixa resolução: ' + filename)
+                      photo_dimensions[filename] = (img.width, img.height)
+                  image_data[filename] = data
+          if len(set(hashlib.sha256(v).hexdigest() for v in image_data.values())) != 4:
+              raise SystemExit('As quatro fotografias não são distintas.')
+
+          site_path = root/'index.html'
+          html = site_path.read_text(encoding='utf-8')
+          pattern = r'<div\s+class="gal gal-alunos gallery-hq"[^>]*>[\s\S]*?</div>'
+          matches = list(re.finditer(pattern,html))
+          if len(matches) != 1:
+              raise SystemExit('Não foi possível encontrar a galeria única; nenhuma mudança feita.')
+          figures = []
+          for filename, alt in filenames:
+              width, height = photo_dimensions[filename]
+              figures.append(
+                  f'    <figure><img src="assets/alunos/{filename}" alt="{alt}" '
+                  f'loading="lazy" decoding="async" width="{width}" height="{height}"></figure>'
+              )
+          new_gallery = '<div class="gal gal-alunos gallery-hq">\n'+'\n'.join(figures)+'\n  </div>'
+          updated = html[:matches[0].start()]+new_gallery+html[matches[0].end():]
+          gallery = re.search(pattern,updated).group(0)
+          for filename, _ in filenames:
+              if updated.count('src="assets/alunos/'+filename+'"') != 1:
+                  raise SystemExit('Há imagem duplicada fora da galeria: '+filename)
+          if gallery.count('<figure>') != 4:
+              raise SystemExit('A galeria deve exibir exatamente quatro imagens.')
+
+          out = root/'assets/alunos'
+          out.mkdir(parents=True,exist_ok=True)
+          for filename, data in image_data.items():
+              (out/filename).write_bytes(data)
+              assert (out/filename).read_bytes() == data
+          css = """/* Galeria original, 4 fotos nítidas e sem corte. */
+          .gal.gal-alunos.gallery-hq{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:clamp(12px,2vw,22px) !important;max-width:1000px;width:100%;margin-inline:auto;align-items:start;height:auto !important;overflow:visible !important}
+          .gal.gallery-hq figure{margin:0;min-width:0;background:#101010;border:1px solid rgba(255,255,255,.12)}
+          .gal.gallery-hq img,.gal.gallery-hq img:hover{display:block;width:100% !important;height:auto !important;max-width:100%;aspect-ratio:auto !important;object-fit:contain !important;object-position:center !important;filter:none !important;transform:none !important}
+          @media(max-width:660px){.gal.gal-alunos.gallery-hq{grid-template-columns:1fr !important;max-width:480px}}
+          @media(prefers-reduced-motion:reduce){.gal.gallery-hq img{transition:none !important;animation:none !important}}
+          """
+          (root/'assets/galeria-alunos.css').write_text(css,encoding='utf-8')
+          if 'assets/galeria-alunos.css' not in updated:
+              raise SystemExit('A galeria não possui sua folha de estilos.')
+          if 'Consultar valores no WhatsApp' not in updated:
+              raise SystemExit('Conteúdo comercial da versão atual mudou; revisão necessária.')
+          site_path.write_text(updated,encoding='utf-8')
+          print('4 fotos originais verificadas e instaladas sem recompressão.')
+          print('Dimensões:', photo_dimensions)
+          print('Somente index.html, galeria-alunos.css e assets/alunos/ alterados.')
+          PY
+      - name: Publicar no GitHub e acionar a Vercel
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html assets/galeria-alunos.css assets/alunos/
+          git rm -f --ignore-unmatch joao-veloso-galeria-4-fotos-originais.zip
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: galeria com 4 fotos originais dos alunos sem cortes"
+            git push origin main
+          else
+            echo "Galeria já sincronizada."
+          fi
