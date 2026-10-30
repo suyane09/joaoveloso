@@ -1,0 +1,112 @@
+name: Aplicar galeria de alunos no site
+on:
+  push:
+    paths: ['.github/workflows/publicar-galeria-alunos.yml']
+permissions:
+  contents: write
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Usar as quatro fotos com alunos e corrigir enquadramento
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, base64, json, urllib.request
+          
+          file = Path("index.html")
+          html = file.read_text(encoding="utf-8")
+          gallery_match = re.search(r'<div\s+class="gal"\s*>(.*?)</div>', html, flags=re.S|re.I)
+          if not gallery_match:
+              raise RuntimeError("A galeria .gal original não foi encontrada. Não é seguro substituir.")
+          gallery_images = re.findall(r'<img\b[^>]*>', gallery_match.group(1), flags=re.S|re.I)
+          if len(gallery_images) != 4:
+              raise RuntimeError(f"Eram esperadas 4 fotos na galeria, encontrei {len(gallery_images)}.")
+          about_match = re.search(r'<img\s+class="main"\s+[^>]*>', html, flags=re.S|re.I)
+          if not about_match:
+              raise RuntimeError("Não foi encontrada a foto original de acompanhamento no supino.")
+          
+          out=Path("assets/alunos")
+          out.mkdir(parents=True, exist_ok=True)
+          def recover_image(tag, filename):
+              found=re.search(r'src="data:image/jpeg;base64,([A-Za-z0-9+/=]+)"',tag)
+              if not found:
+                  raise RuntimeError("A fotografia original incorporada não foi encontrada.")
+              raw=base64.b64decode(found.group(1),validate=True)
+              (out/filename).write_bytes(raw)
+              print(f"Recuperada foto de aluno em resolução original: {filename} {len(raw)} bytes")
+          
+          recover_image(gallery_images[1],"joao-orientacao-aluno.jpg")
+          recover_image(about_match.group(0),"joao-acompanhando-supino.jpg")
+          
+          url_map=json.loads(r'''{"joao-mobilidade-aluno.jpg":"https://media.canva.com/v2/image-resize/format:JPG/height:200/quality:75/uri:ifs%3A%2F%2FM%2Fcefff5e5-b2d5-4e0d-8e08-5f30fdd530e9/watermark:F/width:150?csig=AAAAAAAAAAAAAAAAAAAAAKXdqIxG1iiV9OwlYem8cX9VKRRfjOGtiXPzW6epilH1&exp=1793337868&osig=AAAAAAAAAAAAAAAAAAAAAMwB64DzLjYErMN40Abcz_oHp3W9Yw-0n15M_5UND12M&signer=media-rpc&token=AAIAAU0AJGNlZmZmNWU1LWIyZDUtNGUwZC04ZTA4LTVmMzBmZGQ1MzBlOQAAAAABoYtEPuCAjFkIQXqw39DS_gEq0-2v1i3m-PCzMy1oN_Z_8Y2c1w&x-canva-quality=thumbnail","joao-aparelho-aluno.jpg":"https://media.canva.com/v2/image-resize/format:JPG/height:200/quality:75/uri:ifs%3A%2F%2FM%2F2c6c0949-f554-48ff-9618-ad06e341766a/watermark:F/width:150?csig=AAAAAAAAAAAAAAAAAAAAAA8r63pXsN-xC6J2jcChEzMSWf1onut0z_rZkhUMLpbC&exp=1793334450&osig=AAAAAAAAAAAAAAAAAAAAABImmiHZNPTQn05oERDwjha64CR54i0AWE4AmXxPs0_o&signer=media-rpc&token=AAIAAU0AJDJjNmMwOTQ5LWY1NTQtNDhmZi05NjE4LWFkMDZlMzQxNzY2YQAAAAABoYsQF1AFM9sfzs0rZPt9piPGCHJw71DcIHulkFnWiAxiIU501g&x-canva-quality=thumbnail"}''')
+          for filename,url in url_map.items():
+              request=urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0"})
+              with urllib.request.urlopen(request,timeout=40) as stream:
+                  data=stream.read()
+              if not data.startswith(b"\xff\xd8") or len(data)<3000:
+                  raise RuntimeError(f"Não foi possível recuperar a fotografia {filename} corretamente.")
+              (out/filename).write_bytes(data)
+              print(f"Fotografia enviada incluída: {filename} {len(data)} bytes")
+          
+          items=[
+          ("joao-orientacao-aluno.jpg","João Veloso orientando aluno durante exercício na cadeira extensora"),
+          ("joao-mobilidade-aluno.jpg","João Veloso auxiliando aluno no exercício de mobilidade"),
+          ("joao-acompanhando-supino.jpg","João Veloso acompanhando aluno no supino"),
+          ("joao-aparelho-aluno.jpg","João Veloso orientando aluno durante exercício em aparelho"),
+          ]
+          markup='\n  <div class="gal gal-alunos">\n'
+          for filename, alt in items:
+              markup+=f'    <figure class="gal-aluno"><img src="assets/alunos/{filename}" alt="{alt}" loading="lazy" decoding="async" width="1536" height="2048"></figure>\n'
+          markup+='  </div>'
+          html=html[:gallery_match.start()]+markup+html[gallery_match.end():]
+          css_file=Path("assets/galeria-alunos.css")
+          css_file.write_text("""/* Galeria João Veloso: somente fotos de orientação aos alunos. */
+          .gal.gal-alunos {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: clamp(10px, 1.1vw, 16px);
+            width: 100%;
+            align-items: start;
+          }
+          .gal-alunos .gal-aluno { min-width: 0; margin: 0; padding: 0; background: #111; border: 1px solid rgba(255,255,255,.09); }
+          .gal.gal-alunos .gal-aluno img,
+          .gal.gal-alunos .gal-aluno img:hover {
+            display: block;
+            width: 100%;
+            height: auto;
+            max-width: 100%;
+            aspect-ratio: auto;
+            object-fit: contain;
+            object-position: center;
+            filter: none;
+            transform: none;
+            vertical-align: middle;
+          }
+          @media (max-width: 850px) { .gal.gal-alunos { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+          @media (max-width: 420px) { .gal.gal-alunos { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; } }
+          @media (prefers-reduced-motion: reduce) { .gal-alunos img { animation: none !important; transition: none !important; } }
+          """,encoding="utf-8")
+          tag='<link rel="stylesheet" href="/assets/galeria-alunos.css">'
+          if tag not in html:
+              html=re.sub(r'</head\s*>',tag+'\n</head>',html,count=1,flags=re.I)
+          file.write_text(html,encoding="utf-8")
+          new=Path("index.html").read_text(encoding="utf-8")
+          assert new.count('class="gal-aluno"')==4
+          assert 'assets/galeria-alunos.css' in new
+          for filename,_ in items: assert (out/filename).exists()
+          print("Validação OK: 4 fotografias com alunos, sem corte, mantendo o restante do layout.")
+          
+          PY
+      - name: Publicar e limpar scripts temporários
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f --ignore-unmatch .github/workflows/inspecionar-galeria.yml .github/workflows/testar-fotos.yml .github/workflows/publicar-galeria-alunos.yml
+          git add index.html assets/alunos assets/galeria-alunos.css
+          git commit -m "feat: galeria somente com alunos, fotografias completas e responsivas"
+          git push origin main
