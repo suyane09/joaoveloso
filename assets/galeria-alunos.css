@@ -1,36 +1,6 @@
-/* Fotografias ORIGINAIS do João Veloso, restauradas sem repetição.
-   Manter a resolução e a proporção real de cada imagem. */
-.gal.gallery-restored {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: clamp(14px, 2vw, 24px) !important;
-  align-items: start;
-  width: min(100%, 1000px);
-  height: auto !important;
-  overflow: visible !important;
-  margin-inline: auto;
-}
-.gal.gallery-restored img,
-.gal.gallery-restored img:hover {
-  display: block !important;
-  width: 100% !important;
-  max-width: 100%;
-  height: auto !important;
-  aspect-ratio: auto !important;
-  object-fit: contain !important;
-  object-position: center;
-  filter: none !important;
-  transform: none !important;
-  border: 1px solid rgba(255,255,255,.1);
-  background: #101010;
-}
-@media (max-width: 620px) {
-  .gal.gallery-restored {
-    grid-template-columns: 1fr !important;
-    max-width: 460px;
-    gap: 16px !important;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .gal.gallery-restored img { animation: none !important; transition: none !important; }
-}
+/* Alunos: fotografias originais em alta resolução, sem recorte e sem repetição. */
+.gal.gal-alunos.gallery-hq {display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:clamp(14px,2vw,24px) !important;max-width:950px;margin-inline:auto;align-items:start;height:auto !important;overflow:visible !important}
+.gal.gallery-hq figure {min-width:0;margin:0;background:#111;border:1px solid rgba(255,255,255,.12)}
+.gal.gallery-hq img,.gal.gallery-hq img:hover {display:block;width:100% !important;height:auto !important;max-width:100%;aspect-ratio:auto !important;object-fit:contain !important;object-position:center !important;filter:none !important;transform:none !important}
+@media(max-width:660px){.gal.gal-alunos.gallery-hq{grid-template-columns:1fr !important;max-width:480px}}
+@media(prefers-reduced-motion:reduce){.gal.gallery-hq img{transition:none !important;animation:none !important}}
