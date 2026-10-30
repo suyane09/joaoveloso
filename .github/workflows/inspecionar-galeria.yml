@@ -11,20 +11,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Mostrar estrutura e imagens da galeria
+      - name: Mostrar HTML/CSS da seção de fotos
         run: |
           python3 - <<'PY'
           import re
           from pathlib import Path
           s=Path('index.html').read_text(encoding='utf-8')
-          print('LENGTH',len(s),'LINES',s.count(chr(10)),'BODY_END',s[-350:])
-          pat=r'(?i)galeria|gallery|alunos|momentos|atendimento|acompanhamento|treino na prática'
-          for m in list(re.finditer(pat,s))[:35]:
-            t=s[max(0,m.start()-400):min(len(s),m.end()+750)]
-            t=re.sub(r'data:image/[^;"\s]+;base64,[A-Za-z0-9+/=]+','DATA_IMAGE_OMITIDA',t)
-            print('\nMATCH',m.group(),m.start(),t[:1150])
-          for m in list(re.finditer(r'<img[^>]{0,500}',s,re.I))[:22]:
-            print('IMG',m.start(),m.group()[:400])
-          print('STYLE_ENDS',[m.start() for m in re.finditer('</style>',s,re.I)][:12])
-          print('IMAGE_DATA_URI',len(re.findall(r'data:image',s,re.I)))
+          data=re.compile(r'data:image/[^;"\s]+;base64,[A-Za-z0-9+/=]+')
+          occurrences=[(m.start(),m.end()) for m in data.finditer(s)]
+          print('DATA URI POSITIONS:',occurrences)
+          clean=data.sub('[IMAGEM_BASE64]',s)
+          print('HTML CLEAN FINAL 6500 CHARACTERS:',clean[-6500:])
+          print('ALL IMAGES:',re.findall(r'<img[^>]*>',clean,re.I))
+          for pat in ['gallery','galeria','photo','photos','mosaic','grid','frames','portfolio','showcase','.shots','.photos','.grid','object-fit']:
+            for m in list(re.finditer(re.escape(pat),clean,re.I))[:8]:
+              print('CSSMATCH',pat,clean[max(0,m.start()-80):m.end()+160])
           PY
