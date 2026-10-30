@@ -1,0 +1,35 @@
+/* João Veloso — tipografia da identidade visual oficial.
+   Fontes: Funnel Display (títulos) + Plus Jakarta Sans (interface e leitura).
+   Os arquivos ficam neste projeto para manter a identidade mesmo sem Google Fonts. */
+@font-face {
+  font-family: "Funnel Display";
+  src: url("./fonts/FunnelDisplay-Variable.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("./fonts/PlusJakartaSans-Variable.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("./fonts/PlusJakartaSans-Italic-Variable.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 200 800;
+  font-display: swap;
+}
+:root {
+  --brand-font-title: "Funnel Display", "Arial Narrow", sans-serif;
+  --brand-font-body: "Plus Jakarta Sans", Arial, sans-serif;
+}
+html, body, button, input, select, textarea, p, li, label {
+  font-family: var(--brand-font-body) !important;
+}
+h1, h2, h3, h4, h5, h6,
+[class*="title" i], [class*="heading" i], [class*="headline" i] {
+  font-family: var(--brand-font-title) !important;
+}
