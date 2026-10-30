@@ -1,0 +1,30 @@
+name: Inspecionar galeria João Veloso
+on:
+  push:
+    paths:
+      - '.github/workflows/inspecionar-galeria.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspecionar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mostrar estrutura e imagens da galeria
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          print('LENGTH',len(s),'LINES',s.count(chr(10)),'BODY_END',s[-350:])
+          pat=r'(?i)galeria|gallery|alunos|momentos|atendimento|acompanhamento|treino na prática'
+          for m in list(re.finditer(pat,s))[:35]:
+            t=s[max(0,m.start()-400):min(len(s),m.end()+750)]
+            t=re.sub(r'data:image/[^;"\s]+;base64,[A-Za-z0-9+/=]+','DATA_IMAGE_OMITIDA',t)
+            print('\nMATCH',m.group(),m.start(),t[:1150])
+          for m in list(re.finditer(r'<img[^>]{0,500}',s,re.I))[:22]:
+            print('IMG',m.start(),m.group()[:400])
+          print('STYLE_ENDS',[m.start() for m in re.finditer('</style>',s,re.I)][:12])
+          print('IMAGE_DATA_URI',len(re.findall(r'data:image',s,re.I)))
+          PY
