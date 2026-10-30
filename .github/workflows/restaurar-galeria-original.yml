@@ -1,0 +1,106 @@
+name: Restaurar fotos originais sem duplicação
+on:
+  push:
+    paths:
+      - '.github/workflows/restaurar-galeria-original.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restaurar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter site
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restaurar quatro fotos e enquadramento sem cortes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+          
+          index_path = Path("index.html")
+          current = index_path.read_text(encoding="utf-8")
+          original = subprocess.check_output(
+              ["git", "show", "397520f88028b05f9b16d36a99cf802ccce9ba6d:index.html"],
+              text=True,
+              encoding="utf-8",
+          )
+          
+          orig_match = re.search(r'<div class="gal">(.*?)</div>', original, flags=re.S|re.I)
+          cur_match = re.search(r'<div class="gal gal-alunos">(.*?)</div>', current, flags=re.S|re.I)
+          if not orig_match or not cur_match:
+              raise RuntimeError("Galeria antiga ou atual não encontrada; nenhuma alteração efetuada.")
+          original_images = re.findall(r"<img\b[^>]*>", orig_match.group(1), flags=re.S|re.I)
+          if len(original_images) != 4:
+              raise RuntimeError(f"São esperadas 4 fotos originais distintas, encontradas {len(original_images)}.")
+          srcs = [re.search(r'src="([^"]+)"', t).group(1) for t in original_images]
+          if len(set(srcs)) != 4:
+              raise RuntimeError("Galeria original tem imagens repetidas. Atualização bloqueada.")
+          # O HTML original mantém a resolução integral de cada uma das quatro fotografias.
+          restored = orig_match.group(0).replace('class="gal"', 'class="gal gallery-restored"',1)
+          current = current[:cur_match.start()] + restored + current[cur_match.end():]
+          index_path.write_text(current, encoding="utf-8")
+          css = Path("assets/galeria-alunos.css")
+          css.write_text("""/* Fotografias ORIGINAIS do João Veloso, restauradas sem repetição.
+             Manter a resolução e a proporção real de cada imagem. */
+          .gal.gallery-restored {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: clamp(14px, 2vw, 24px) !important;
+            align-items: start;
+            width: min(100%, 1000px);
+            height: auto !important;
+            overflow: visible !important;
+            margin-inline: auto;
+          }
+          .gal.gallery-restored img,
+          .gal.gallery-restored img:hover {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100%;
+            height: auto !important;
+            aspect-ratio: auto !important;
+            object-fit: contain !important;
+            object-position: center;
+            filter: none !important;
+            transform: none !important;
+            border: 1px solid rgba(255,255,255,.1);
+            background: #101010;
+          }
+          @media (max-width: 620px) {
+            .gal.gallery-restored {
+              grid-template-columns: 1fr !important;
+              max-width: 460px;
+              gap: 16px !important;
+            }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .gal.gallery-restored img { animation: none !important; transition: none !important; }
+          }
+          """, encoding="utf-8")
+          final = index_path.read_text(encoding="utf-8")
+          section = re.search(r'<div class="gal gallery-restored">(.*?)</div>', final, flags=re.S|re.I)
+          assert section is not None
+          assert len(re.findall(r"<img\b", section.group(1))) == 4
+          assert len(set(re.findall(r'src="([^"]+)"', section.group(1)))) == 4
+          assert "class=\"gal gal-alunos\"" not in final
+          assert "<link rel=\"stylesheet\" href=\"/assets/galeria-alunos.css\">" in final
+          print("SUCESSO: restauradas 4 fotos originais, distintas, sem duplicação da foto do supino de outra seção.")
+          print("Total de fotos originais restauradas:", len(original_images))
+          print("Fotos incorporadas com resolução original, sem miniaturas externas.")
+          
+          PY
+      - name: Publicar código e eliminar miniaturas ruins
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -r -f --ignore-unmatch assets/alunos .github/workflows/restaurar-galeria-original.yml
+          git add index.html assets/galeria-alunos.css
+          git commit -m "fix: restaurar 4 fotos originais distintas sem cortes ou duplicação"
+          git push origin main
