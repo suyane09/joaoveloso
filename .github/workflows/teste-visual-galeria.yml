@@ -68,6 +68,21 @@ jobs:
                 if(layout.columns!==cols)throw Error('Colunas inesperadas em '+label+': '+layout.columns);
                 if(layout.docWidth>layout.viewport+2)throw Error('Rolagem horizontal em '+label+': '+JSON.stringify(layout));
                 await gallery.screenshot({path:'screenshots-galeria/galeria-'+label+'.png'});
+                // Verificar correções solicitadas pelo João sem afetar layout.
+                const problems=await page.locator('.rows h3').allTextContents();
+                if(!problems.some(t=>t.trim().toLowerCase()==='o físico não evolui'))throw Error('Título novo ausente em '+label);
+                if(problems.some(t=>t.trim().toLowerCase()==='o físico fica torto'))throw Error('Título antigo ainda visível em '+label);
+                const repeatedSection=await page.getByText('O que está incluso no acompanhamento',{exact:true}).count();
+                if(repeatedSection!==0)throw Error('Seção repetida não foi removida');
+                if(await page.locator('#metodo .steps > div').count()!==4)throw Error('Etapas do Método VERTEX incompletas');
+                const methodText=await page.locator('#metodo .steps').innerText();
+                for(const word of ['anamnese','treino personalizado','vídeos','WhatsApp']){
+                  if(!methodText.toLowerCase().includes(word.toLowerCase()))throw Error('Falta informação integrada: '+word);
+                }
+                if(await page.getByRole('link',{name:/me chame no whatsapp/i}).count()<1)throw Error('CTA pessoal ausente');
+                if(await page.getByText('Chamar o João no WhatsApp',{exact:true}).count()>0)throw Error('CTA antigo presente');
+                await page.locator('#metodo').screenshot({path:'screenshots-galeria/metodo-'+label+'.png'});
+                await page.locator('.final').screenshot({path:'screenshots-galeria/contato-'+label+'.png'});
                 console.log('APROVADO',label);
                 await page.close();
               }
